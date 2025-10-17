@@ -1,0 +1,14 @@
+[package]
+name = "php-ext-poker"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+aya_poker = "0.1.0"
+ext-php-rs = "*"
+
+[profile.release]
+strip = "debuginfo"
