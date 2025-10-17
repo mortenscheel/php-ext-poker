@@ -36,6 +36,7 @@ Install the cargo-php extension
 ```bash
 cargo install cargo-php
 ```
+Build and install the php extension
 ```bash
 cargo php install --release
 ```
