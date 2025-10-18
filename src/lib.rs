@@ -69,7 +69,7 @@ impl EquityCalculator {
             .iter()
             .map(|op| parse_hand(op, 2))
             .collect::<Result<Vec<_>, _>>()?;
-        let board = parse_hand(board, 2)?;
+        let board = parse_hand(board, 5)?;
 
         let all_opponent_cards = opponents.iter().flat_map(|o| o.iter()).collect::<Hand>();
         // To simulate board run-outs, we begin by preparing a deck
