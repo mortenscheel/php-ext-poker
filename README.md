@@ -41,6 +41,23 @@ Build and install the php extension
 cargo php install --release
 ```
 
+### IDE Support
+
+The extension includes a stub file (`php-ext-poker.stubs.php`) that provides type hints and documentation for IDEs. To use it:
+
+1. **PHPStorm/IntelliJ IDEA**: Configure the stub file path in Settings → PHP → Include Path
+2. **VS Code with Intelephense**: Add to your workspace settings:
+   ```json
+   {
+     "intelephense.stubs": [
+       "/path/to/php-ext-poker/php-ext-poker.stubs.php"
+     ]
+   }
+   ```
+3. **VS Code with PHP Intelisense**: The extension should automatically detect the stub file if it's in your project
+
+The stub file provides full autocomplete, type checking, and inline documentation for all classes and methods.
+
 ## Usage
 
 ### Basic Example
@@ -129,15 +146,49 @@ $result = $calculator->calculate(
 );
 ```
 
+### Hand Ranking
+
+You can manually evaluate and compare poker hands using the `rankHand()` static method:
+
+```php
+<?php
+
+use Poker\EquityCalculator;
+
+// Evaluate 5-card hands
+$straightFlush = EquityCalculator::rankHand('Ah Kh Qh Jh Th');
+$fullHouse = EquityCalculator::rankHand('Ks Kh Kd 3c 3s');
+
+// Evaluate 7-card hands (best 5 cards used)
+$hand1 = EquityCalculator::rankHand('As Kh Qh Jh Th 2c 3d');
+$hand2 = EquityCalculator::rankHand('Ks Kh Kd 3c 3s 7h 9d');
+
+// Compare hands (higher rank = better hand)
+if ($straightFlush > $fullHouse) {
+    echo "Straight flush wins!\n";
+}
+
+// Useful for determining winners without full equity calculation
+$board = '9h 9d 5c 2h 7s';
+$player1 = 'As Ah';
+$player2 = 'Kc Kd';
+
+$rank1 = EquityCalculator::rankHand("$player1 $board");
+$rank2 = EquityCalculator::rankHand("$player2 $board");
+
+echo $rank1 > $rank2 ? "Player 1 wins" : "Player 2 wins";
+```
+
 ## API Reference
 
 ### `Poker\EquityCalculator`
 
 #### Methods
 
-- `samples(int $samples): void`: Sets the number of Monte Carlo simulations to run (default: 100,000)
-- `seed(int $seed): void`: Sets the random seed for deterministic results (default: 0)
-- `calculate(string $player, array $opponents, string $board): EquityResult`: Calculates equity
+- `samples(int $samples): EquityCalculator`: Sets the number of Monte Carlo simulations to run (default: 100,000). Returns self for method chaining.
+- `seed(int $seed): EquityCalculator`: Sets the random seed for deterministic results. Returns self for method chaining.
+- `calculate(string $player, array $opponents, string $board): EquityResult`: Calculates equity for the player's hand against opponent hands on the given board
+- `static rankHand(string $hand): int`: Evaluates the strength of a 5 or 7 card hand. Returns an integer rank that can be used to compare hands (higher is better)
 
 ### `Poker\EquityResult`
 
@@ -150,6 +201,42 @@ $result = $calculator->calculate(
 #### Methods
 
 - `__toString()`: Returns a formatted string representation
+
+### `Poker\Deck`
+
+A class for simulating a deck of cards with shuffling and dealing functionality.
+
+#### Methods
+
+- `__construct()`: Creates a shuffled deck of 52 cards with a random seed
+- `static fromSeed(int $seed): Deck`: Creates a shuffled deck with a specific random seed for reproducible results
+- `deal(): ?string`: Deals the next card from the deck in poker notation (e.g., "As", "Kh"). Returns null if the deck is empty
+- `reset(): void`: Resets the deck to its original shuffled state, putting all dealt cards back
+- `count(): int`: Returns the number of remaining cards in the deck
+
+#### Example
+
+```php
+<?php
+
+use Poker\Deck;
+
+// Create a shuffled deck
+$deck = new Deck();
+
+// Deal some cards
+$card1 = $deck->deal();  // e.g., "As"
+$card2 = $deck->deal();  // e.g., "Kh"
+
+echo "Remaining cards: " . $deck->count() . "\n";  // 50
+
+// Reset to original state
+$deck->reset();
+echo "After reset: " . $deck->count() . "\n";  // 52
+
+// Create deterministic deck for testing
+$deterministicDeck = Deck::fromSeed(12345);
+```
 
 ## Performance
 
