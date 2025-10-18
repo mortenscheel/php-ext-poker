@@ -1,12 +1,21 @@
 #![cfg_attr(windows, feature(abi_vectorcall))]
-#![allow(non_snake_case)]
 
-use aya_poker::base::{CARDS, Hand};
-use aya_poker::deck::Deck;
+use aya_poker::base::{Hand, Rank, Suit, CARDS};
+use aya_poker::deck::{Deck, FullDeck};
 use aya_poker::poker_rank;
+use ext_php_rs::types::ZendClassObject;
 use ext_php_rs::{exception::PhpResult, prelude::*};
+use rand::RngCore;
 use std::cmp::Ordering;
 use std::time::Instant;
+
+#[php_module]
+pub fn module(module: ModuleBuilder) -> ModuleBuilder {
+    module
+        .class::<EquityCalculator>()
+        .class::<EquityResult>()
+        .class::<PhpDeck>()
+}
 
 #[derive(Copy, Clone)]
 #[php_class]
@@ -16,32 +25,9 @@ pub struct EquityCalculator {
     pub seed: u64,
 }
 
-#[php_class]
-#[php(name = "Poker\\EquityResult")]
-pub struct EquityResult {
-    #[php(prop)]
-    pub equity: f64,
-    #[php(prop)]
-    pub samples: usize,
-    #[php(prop)]
-    pub time: usize,
-}
-
-#[php_impl]
-impl EquityResult {
-    #[php(name = "__toString")]
-    pub fn __toString(&self) -> String {
-        format!(
-            "{:.2}% equity [{} samples, {:.2} samples per ms]",
-            self.equity * 100.0,
-            self.samples,
-            self.samples as f64 / self.time as f64
-        )
-    }
-}
-
 #[php_impl]
 impl EquityCalculator {
+    /// Construct a calculator with default settings
     pub fn __construct() -> Self {
         Self {
             samples: 100_000,
@@ -49,14 +35,30 @@ impl EquityCalculator {
         }
     }
 
-    pub fn samples(&mut self, samples: usize)  {
-        self.samples = samples;
+    /// Modify number of samples
+    pub fn samples(
+        self_: &mut ZendClassObject<EquityCalculator>,
+        samples: usize,
+    ) -> &mut ZendClassObject<EquityCalculator> {
+        self_.samples = samples;
+        self_
     }
 
-    pub fn seed(&mut self, seed: u64) {
-        self.seed = seed;
+    /// Modify rng seed
+    pub fn seed(
+        self_: &mut ZendClassObject<EquityCalculator>,
+        seed: u64,
+    ) -> &mut ZendClassObject<EquityCalculator> {
+        self_.seed = seed;
+        self_
     }
 
+    /// Calculate equity of the player's hand
+    ///
+    /// @param string $player Hero's hand in poker notation
+    /// @param string[] $opponents Villain hands in poker notation
+    /// @param string $board Board state in poker notation
+    ///
     pub fn calculate(
         &self,
         player: &str,
@@ -136,11 +138,112 @@ impl EquityCalculator {
             time,
         })
     }
+
+    /// Evaluates the strength of a 5 or 7 card hand.
+    /// Can be used to compare hands
+    pub fn rank_hand(hand: &str) -> u16 {
+        let hand: Hand = hand.parse().unwrap();
+        poker_rank(&hand).0
+    }
 }
 
-#[php_module]
-pub fn module(module: ModuleBuilder) -> ModuleBuilder {
-    module.class::<EquityCalculator>().class::<EquityResult>()
+#[php_class]
+#[php(name = "Poker\\EquityResult")]
+pub struct EquityResult {
+    /// @var double the result of an equity calculation
+    #[php(prop)]
+    pub equity: f64,
+    /// @var int number of iterations of the calculation
+    #[php(prop)]
+    pub samples: usize,
+    /// @var int calculation duration in milliseconds
+    #[php(prop)]
+    pub time: usize,
+}
+
+#[php_impl]
+impl EquityResult {
+    #[php(name = "__toString")]
+    pub fn stringable(&self) -> String {
+        format!(
+            "{:.2}% equity [{} samples, {:.2} samples per ms]",
+            self.equity * 100.0,
+            self.samples,
+            self.samples as f64 / self.time as f64
+        )
+    }
+}
+
+#[php_class]
+#[php(name = "Poker\\Deck")]
+pub struct PhpDeck {
+    deck: FullDeck,
+}
+#[php_impl]
+impl PhpDeck {
+    /// Create a shuffled deck of 52 cards with a random seed
+    pub fn __construct() -> Self {
+        Self {
+            deck: FullDeck::with_seed(rand::rng().next_u64()),
+        }
+    }
+
+    /// Create a huffled deck of 52 cards with specific random seed
+    pub fn from_seed(seed: u64) -> Self {
+        Self {
+            deck: FullDeck::with_seed(seed),
+        }
+    }
+
+    /// Deal the next card from the deck
+    ///
+    /// @return ?string null if the deck is empty
+    pub fn deal(&mut self) -> Option<String> {
+        if self.deck.is_empty() {
+            return None;
+        }
+        match self.deck.deal(1) {
+            Some(cards) => {
+                let rank_str = match cards[0].rank() {
+                    Rank::Ace => "A",
+                    Rank::King => "K",
+                    Rank::Queen => "Q",
+                    Rank::Jack => "J",
+                    Rank::Ten => "T",
+                    Rank::Nine => "9",
+                    Rank::Eight => "8",
+                    Rank::Seven => "7",
+                    Rank::Six => "6",
+                    Rank::Five => "5",
+                    Rank::Four => "4",
+                    Rank::Three => "3",
+                    Rank::Two => "2",
+                };
+
+                let suit_str = match cards[0].suit() {
+                    Suit::Hearts => "h",
+                    Suit::Diamonds => "d",
+                    Suit::Clubs => "c",
+                    Suit::Spades => "s",
+                };
+
+                Some(format!("{}{}", rank_str, suit_str))
+            }
+            None => None,
+        }
+    }
+
+    /// Reset the deck to its original shuffled state
+    ///
+    /// @return void
+    pub fn reset(&mut self) {
+        self.deck.reset();
+    }
+
+    /// Remaining cards in deck
+    pub fn count(&self) -> usize {
+        self.deck.len()
+    }
 }
 
 fn parse_hand(val: &str, max: usize) -> Result<Hand, String> {

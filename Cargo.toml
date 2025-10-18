@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 aya_poker = "0.1.0"
 ext-php-rs = "*"
+rand = "0.10.0-rc.0"
 
 [profile.release]
 strip = "debuginfo"

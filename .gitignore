@@ -1,3 +1,4 @@
 /target
 .idea/
 /*.php
+!php-ext-poker.stubs.php
