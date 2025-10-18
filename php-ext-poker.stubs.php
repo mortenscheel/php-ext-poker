@@ -43,14 +43,14 @@ namespace Poker {
         public $samples;
 
         /**
-         * @var int calculation duration in milliseconds
-         */
-        public $time;
-
-        /**
          * @var double the result of an equity calculation
          */
         public $equity;
+
+        /**
+         * @var int calculation duration in milliseconds
+         */
+        public $time;
 
         public function __toString(): string {}
 
@@ -59,7 +59,7 @@ namespace Poker {
 
     class Deck {
         /**
-         * Create a huffled deck of 52 cards with specific random seed
+         * Create a shuffled deck of 52 cards with specific random seed
          */
         public static function fromSeed(int $seed): \Poker\Deck {}
 

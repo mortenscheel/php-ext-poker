@@ -188,7 +188,7 @@ impl PhpDeck {
         }
     }
 
-    /// Create a huffled deck of 52 cards with specific random seed
+    /// Create a shuffled deck of 52 cards with specific random seed
     pub fn from_seed(seed: u64) -> Self {
         Self {
             deck: FullDeck::with_seed(seed),
